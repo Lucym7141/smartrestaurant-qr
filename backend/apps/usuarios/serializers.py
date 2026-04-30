@@ -4,8 +4,12 @@ from .models import Usuario, PerfilCliente, AlergiaCliente
 
 
 class TokenPersonalizadoSerializer(TokenObtainPairSerializer):
-    """Agrega datos del usuario al token JWT para que el frontend
-    sepa el rol sin hacer una petición extra."""
+    username_field = 'correo'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['correo'] = serializers.EmailField()
+        self.fields.pop('username', None)
 
     @classmethod
     def get_token(cls, user):
@@ -14,7 +18,6 @@ class TokenPersonalizadoSerializer(TokenObtainPairSerializer):
         token['correo'] = user.correo
         token['rol']    = user.rol.nombre
         return token
-
 
 class RegistroClienteSerializer(serializers.ModelSerializer):
     password         = serializers.CharField(write_only=True, min_length=8)
