@@ -23,7 +23,7 @@ from apps.catalogos.models import (
 from apps.notificaciones.models import Notificacion
 from apps.catalogos.models import TipoNotificacion
 from apps.usuarios.models import Usuario
-from utils.permisos import EsMesero, EsCocinero, EsAdmin, EsCocineroOMesero
+from utils.permisos import EsMesero, EsCocinero, EsAdmin, EsCocineroOMesero, EsAdminOMesero
 
 
 # ─── CREAR PEDIDO ─────────────────────────────────────────────────────────────
@@ -152,7 +152,7 @@ class PedidosEstacionView(generics.ListAPIView):
     El cocinero ve los pedidos de su estación:
     ingredientes, adiciones, alergias y notas del cliente.
     """
-    permission_classes = [IsAuthenticated, EsCocinero]
+    permission_classes = [IsAuthenticated, EsAdminOMesero]
     serializer_class   = PedidoSerializer
 
     def get_queryset(self):
@@ -177,8 +177,7 @@ class CambiarEstadoPedidoView(views.APIView):
     pendiente → en_preparacion → listo
     Cuando está listo notifica al mesero.
     """
-    permission_classes = [IsAuthenticated, EsCocinero]
-
+    permission_classes = [IsAuthenticated, EsAdminOMesero]
     def patch(self, request, pk):
         try:
             pedido = Pedido.objects.get(pk=pk)
@@ -344,7 +343,7 @@ class CancelarPedidoView(views.APIView):
 
 class AprobarCancelacionView(views.APIView):
     """El mesero o admin aprueba o rechaza una solicitud de cancelación."""
-    permission_classes = [IsAuthenticated, EsCocineroOMesero]
+    permission_classes = [IsAuthenticated, EsAdminOMesero]
 
     def patch(self, request, pk):
         try:
@@ -374,7 +373,7 @@ class AprobarCancelacionView(views.APIView):
 
 class PedidosMesaView(generics.ListAPIView):
     """El mesero ve todos los pedidos de una sesión de mesa."""
-    permission_classes = [IsAuthenticated, EsCocineroOMesero]
+    permission_classes = [IsAuthenticated, EsAdminOMesero]
     serializer_class   = PedidoSerializer
 
     def get_queryset(self):

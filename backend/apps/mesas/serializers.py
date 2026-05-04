@@ -16,16 +16,20 @@ class MesaSerializer(serializers.ModelSerializer):
 
 
 class MesaMapaSerializer(serializers.ModelSerializer):
-    """
-    Vista resumida para el mapa — solo lo necesario para
-    mostrar cada mesa con su estado y número.
-    """
-    estado_nombre = serializers.CharField(source='estado.nombre', read_only=True)
+    estado_nombre    = serializers.CharField(source='estado.nombre', read_only=True)
+    sesion_activa_id = serializers.SerializerMethodField()
+    ubicacion        = serializers.CharField(read_only=True)
 
     class Meta:
         model  = Mesa
-        fields = ['id', 'numero', 'capacidad', 'estado_nombre', 'coord_x', 'coord_y']
+        fields = ['id', 'numero', 'capacidad', 'ubicacion', 'estado_nombre',
+                  'coord_x', 'coord_y', 'sesion_activa_id']
 
+    def get_sesion_activa_id(self, obj):
+        sesion = SesionMesa.objects.filter(
+            mesa=obj, estado__nombre='activa'
+        ).first()
+        return sesion.id if sesion else None
 
 class CodigoQRSerializer(serializers.ModelSerializer):
     mesa_numero = serializers.IntegerField(source='mesa.numero', read_only=True)

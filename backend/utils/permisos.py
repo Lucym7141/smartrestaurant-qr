@@ -8,6 +8,7 @@ def es_rol(rol_nombre):
             return (
                 request.user and
                 request.user.is_authenticated and
+                request.user.rol is not None and
                 request.user.rol.nombre == rol_nombre
             )
     PermisoRol.__name__ = f'Es{rol_nombre.capitalize()}'
@@ -15,20 +16,21 @@ def es_rol(rol_nombre):
 
 
 # Permisos listos para usar en cualquier vista
-EsCliente      = es_rol('cliente')
-EsMesero       = es_rol('mesero')
-EsCajero       = es_rol('cajero')
-EsAdmin        = es_rol('admin')
-EsCocinero     = es_rol('cocinero')
+EsCliente  = es_rol('cliente')
+EsMesero   = es_rol('mesero')
+EsCajero   = es_rol('cajero')
+EsAdmin    = es_rol('admin')
+EsCocinero = es_rol('cocina')
 
 
 class EsAdminOMesero(BasePermission):
-    """Para endpoints que pueden usar tanto admin como mesero."""
+    """Para endpoints que pueden usar admin, mesero y cocina."""
     def has_permission(self, request, view):
         return (
             request.user and
             request.user.is_authenticated and
-            request.user.rol.nombre in ['admin', 'mesero']
+            request.user.rol is not None and
+            request.user.rol.nombre in ['admin', 'mesero', 'cocina']
         )
 
 
@@ -37,5 +39,6 @@ class EsCocineroOMesero(BasePermission):
         return (
             request.user and
             request.user.is_authenticated and
-            request.user.rol.nombre in ['cocinero', 'mesero']
+            request.user.rol is not None and
+            request.user.rol.nombre in ['cocina', 'mesero', 'admin']
         )

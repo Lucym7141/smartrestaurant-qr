@@ -12,11 +12,22 @@ import MapaMesas    from './pages/MapaMesas';
 import MisPedidos   from './pages/MisPedidos';
 import Pago         from './pages/Pago';
 import Reservas     from './pages/Reservas';
+import PanelAdmin   from './pages/PanelAdmin';
 import BottomNav    from './components/Layout/BottomNav';
+
+const ROLES_ADMIN = ['admin', 'mesero', 'cocina'];
 
 function RutaProtegida({ children }) {
   const token = useAuthStore((s) => s.token);
   return token ? children : <Navigate to="/login" replace />;
+}
+
+function RutaAdmin({ children }) {
+  const token = useAuthStore((s) => s.token);
+  const rol   = useAuthStore((s) => s.rol);
+  if (!token) return <Navigate to="/login" replace />;
+  if (!ROLES_ADMIN.includes(rol)) return <Navigate to="/" replace />;
+  return children;
 }
 
 function LayoutCliente({ children }) {
@@ -44,7 +55,12 @@ export default function App() {
         <Route path="/login"    element={<Login />} />
         <Route path="/registro" element={<Registro />} />
 
-        {/* Protegidas */}
+        {/* Panel admin — solo para admin/mesero/cocina */}
+        <Route path="/panel" element={
+          <RutaAdmin><PanelAdmin /></RutaAdmin>
+        } />
+
+        {/* Protegidas cliente */}
         <Route path="/" element={
           <RutaProtegida>
             <LayoutCliente><Inicio /></LayoutCliente>

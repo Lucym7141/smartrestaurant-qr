@@ -10,7 +10,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const setAuth               = useAuthStore((s) => s.setAuth);
   const navigate              = useNavigate();
-
+  const ROLES_ADMIN = ['admin', 'mesero', 'cocina'];
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -21,7 +21,8 @@ export default function Login() {
       const decoded = jwtDecode(data.access);
       setAuth(decoded.nombre, data.access, decoded.rol);
       toast.success(`¡Bienvenido, ${decoded.nombre}!`);
-      navigate('/');
+      const esAdmin = ROLES_ADMIN.includes(decoded.rol);
+     navigate(esAdmin ? '/panel' : '/');
     } catch {
       toast.error('Correo o contraseña incorrectos');
     } finally {
