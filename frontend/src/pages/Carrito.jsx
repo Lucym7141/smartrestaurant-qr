@@ -2,16 +2,16 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { crearPedido } from '../api/pedidos';
-import useCarritoStore from '../store/useCarritoStore';
+import useCarritoStore, { selectTotal } from '../store/useCarritoStore';
 import useAuthStore from '../store/useAuthStore';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Trash2, ShoppingBag, ChevronRight, MapPin } from 'lucide-react';
-
+ 
 function ItemCarrito({ item, onEliminar }) {
   const subtotalAdiciones = (item.adiciones || [])
     .reduce((a, ad) => a + Number(ad.precio) * ad.cantidad, 0);
   const total = (Number(item.precio_unit) + subtotalAdiciones) * item.cantidad;
-
+ 
   return (
     <div style={{
       background: '#fff', borderRadius: '18px', padding: '16px',
@@ -40,7 +40,7 @@ function ItemCarrito({ item, onEliminar }) {
           <Trash2 size={15} />
         </button>
       </div>
-
+ 
       {/* Adiciones */}
       {item.adiciones?.length > 0 && (
         <div style={{ background: '#fafaf9', borderRadius: '10px',
@@ -58,7 +58,7 @@ function ItemCarrito({ item, onEliminar }) {
           ))}
         </div>
       )}
-
+ 
       {/* Sin ingredientes */}
       {item.ingredientes_a_remover?.length > 0 && (
         <div style={{ marginBottom: '8px' }}>
@@ -68,7 +68,7 @@ function ItemCarrito({ item, onEliminar }) {
           </span>
         </div>
       )}
-
+ 
       {/* Notas */}
       {item.notas && (
         <p style={{ fontSize: '0.73rem', color: '#bbb', fontStyle: 'italic',
@@ -76,7 +76,7 @@ function ItemCarrito({ item, onEliminar }) {
           "{item.notas}"
         </p>
       )}
-
+ 
       <div style={{ display: 'flex', justifyContent: 'space-between',
         alignItems: 'center', paddingTop: '10px',
         borderTop: '1px solid #f5f2ed' }}>
@@ -93,13 +93,13 @@ function ItemCarrito({ item, onEliminar }) {
     </div>
   );
 }
-
+ 
 export default function Carrito() {
   const navigate  = useNavigate();
   const sesionId  = useAuthStore((s) => s.sesionId);
   const { items, eliminarItem, limpiarCarrito } = useCarritoStore();
-  const total     = useCarritoStore((s) => s.total);
-
+  const total     = useCarritoStore(selectTotal);
+ 
   const { mutate: enviarPedido, isPending } = useMutation({
     mutationFn: crearPedido,
     onSuccess: () => {
@@ -109,7 +109,7 @@ export default function Carrito() {
     },
     onError: () => toast.error('Error al enviar el pedido'),
   });
-
+ 
   const handleConfirmar = () => {
     if (!sesionId) {
       toast.error('Primero escanea el QR de tu mesa');
@@ -136,11 +136,11 @@ export default function Carrito() {
       })),
     });
   };
-
+ 
   return (
     <div style={{ background: '#f5f2ed', minHeight: '100dvh',
       paddingBottom: '200px', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-
+ 
       {/* Header */}
       <div style={{
         background: '#1a1a1a', padding: '52px 20px 24px',
@@ -166,9 +166,9 @@ export default function Carrito() {
           </div>
         </div>
       </div>
-
+ 
       <div style={{ padding: '20px' }}>
-
+ 
         {/* Aviso mesa */}
         {!sesionId && (
           <div onClick={() => navigate('/mesas')} style={{
@@ -193,7 +193,7 @@ export default function Carrito() {
             <ChevronRight size={16} color="#f39c12" />
           </div>
         )}
-
+ 
         {/* Carrito vacío */}
         {items.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
@@ -226,7 +226,7 @@ export default function Carrito() {
             {items.map((item) => (
               <ItemCarrito key={item._id} item={item} onEliminar={eliminarItem} />
             ))}
-
+ 
             <button onClick={() => navigate('/menu')} style={{
               width: '100%', padding: '14px',
               background: 'none', border: '2px dashed #d5d0c8',
@@ -243,7 +243,7 @@ export default function Carrito() {
           </>
         )}
       </div>
-
+ 
       {/* Footer fijo */}
       {items.length > 0 && (
         <div style={{
@@ -281,7 +281,7 @@ export default function Carrito() {
               </span>
             </div>
           </div>
-
+ 
           <button onClick={handleConfirmar} disabled={isPending} style={{
             width: '100%', padding: '16px',
             background: isPending ? '#ccc' : '#ff4f1f',
@@ -305,3 +305,4 @@ export default function Carrito() {
     </div>
   );
 }
+ 

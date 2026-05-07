@@ -138,11 +138,11 @@ export default function MapaMesas() {
     onError: () => toast.error('QR inválido o inactivo'),
   });
 
-  const conteo = {
-    disponible: mesas.filter((m) => m.estado_nombre === 'disponible').length,
-    ocupada:    mesas.filter((m) => m.estado_nombre === 'ocupada').length,
-    reservada:  mesas.filter((m) => m.estado_nombre === 'reservada').length,
-  };
+ const conteo = {
+  disponible: mesas.filter((m) => m.estado_nombre === 'libre').length,
+  ocupada:    mesas.filter((m) => m.estado_nombre === 'ocupada').length,
+  reservada:  mesas.filter((m) => m.estado_nombre === 'reservada').length,
+};
 
   return (
     <div style={{ background: '#f5f2ed', minHeight: '100dvh',

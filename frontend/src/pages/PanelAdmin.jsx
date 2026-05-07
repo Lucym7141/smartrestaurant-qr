@@ -407,10 +407,9 @@ export default function PanelAdmin() {
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
-  const mesasOcupadas    = mesas.filter(m => m.estado_nombre === 'ocupada');
-  const mesasDisponibles = mesas.filter(m => m.estado_nombre === 'disponible');
-  const mesasReservadas  = mesas.filter(m => m.estado_nombre === 'reservada');
-
+ const mesasOcupadas    = mesas.filter(m => m.estado_nombre === 'ocupada');
+const mesasDisponibles = mesas.filter(m => m.estado_nombre === 'libre');
+const mesasReservadas  = mesas.filter(m => m.estado_nombre === 'reservada');
   return (
     <div style={{ background: '#f5f2ed', minHeight: '100dvh',
       paddingBottom: '40px', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getPlato, getPlatoAlergia } from '../api/menu';
@@ -6,13 +6,13 @@ import useCarritoStore from '../store/useCarritoStore';
 import useAuthStore from '../store/useAuthStore';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Plus, Minus, ShoppingBag, AlertTriangle, Box, Clock, Check } from 'lucide-react';
-
+ 
 export default function PlatoDetalle() {
   const { id }      = useParams();
   const navigate    = useNavigate();
   const sesionId    = useAuthStore((s) => s.sesionId);
   const agregarItem = useCarritoStore((s) => s.agregarItem);
-
+ 
   const [cantidad,          setCantidad]          = useState(1);
   const [variante,          setVariante]          = useState(null);
   const [adiciones,         setAdiciones]         = useState([]);
@@ -20,18 +20,29 @@ export default function PlatoDetalle() {
   const [notas,             setNotas]             = useState('');
   const [verAR,             setVerAR]             = useState(false);
   const [alergiaConfirmada, setAlergiaConfirmada] = useState(false);
-
+ 
+  // Resetear selecciones cada vez que el usuario navega a un plato diferente
+  useEffect(() => {
+    setCantidad(1);
+    setVariante(null);
+    setAdiciones([]);
+    setRemovidos([]);
+    setNotas('');
+    setVerAR(false);
+    setAlergiaConfirmada(false);
+  }, [id]);
+ 
   const { data: plato, isLoading } = useQuery({
     queryKey: ['plato', id],
     queryFn:  () => getPlato(id).then((r) => r.data),
   });
-
+ 
   const { data: alergiaInfo } = useQuery({
     queryKey: ['alergia-plato', id],
     queryFn:  () => getPlatoAlergia(id).then((r) => r.data),
     enabled:  !!id,
   });
-
+ 
   if (isLoading) return (
     <div style={{ display: 'flex', justifyContent: 'center',
       alignItems: 'center', height: '100dvh', color: '#888',
@@ -39,9 +50,9 @@ export default function PlatoDetalle() {
       Cargando plato...
     </div>
   );
-
+ 
   if (!plato) return null;
-
+ 
   const toggleAdicion = (ad) => {
     setAdiciones((prev) =>
       prev.find((a) => a.id === ad.id)
@@ -49,7 +60,7 @@ export default function PlatoDetalle() {
         : [...prev, { ...ad, cantidad: 1 }]
     );
   };
-
+ 
   const toggleRemovido = (ing) => {
     setRemovidos((prev) =>
       prev.includes(ing.id)
@@ -57,14 +68,14 @@ export default function PlatoDetalle() {
         : [...prev, ing.id]
     );
   };
-
+ 
   const calcularTotal = () => {
     let total = Number(plato.precio_base);
     if (variante) total += Number(variante.precio_extra);
     adiciones.forEach((ad) => { total += Number(ad.precio) * ad.cantidad; });
     return (total * cantidad).toLocaleString();
   };
-
+ 
   const handleAgregar = () => {
     if (!sesionId) {
       toast.error('Escanea el QR de tu mesa primero');
@@ -91,11 +102,11 @@ export default function PlatoDetalle() {
     toast.success(`${plato.nombre} agregado al pedido`);
     navigate(-1);
   };
-
+ 
   return (
     <div style={{ background: '#f5f2ed', minHeight: '100dvh',
       paddingBottom: '120px', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-
+ 
       {/* Hero imagen */}
       <div style={{ position: 'relative', height: '320px', background: '#1a1a1a' }}>
         {verAR && plato.modelo_ar_url ? (
@@ -114,13 +125,13 @@ export default function PlatoDetalle() {
             🍽️
           </div>
         )}
-
+ 
         {/* Gradiente inferior */}
         <div style={{
           position: 'absolute', bottom: 0, left: 0, right: 0, height: '120px',
           background: 'linear-gradient(to top, #f5f2ed, transparent)',
         }} />
-
+ 
         {/* Botón atrás */}
         <button onClick={() => navigate(-1)} style={{
           position: 'absolute', top: '52px', left: '16px',
@@ -130,7 +141,7 @@ export default function PlatoDetalle() {
         }}>
           <ArrowLeft size={20} color="#fff" />
         </button>
-
+ 
         {/* Botón AR */}
         {plato.modelo_ar_url && (
           <button onClick={() => setVerAR(!verAR)} style={{
@@ -148,9 +159,9 @@ export default function PlatoDetalle() {
           </button>
         )}
       </div>
-
+ 
       <div style={{ padding: '0 20px 20px', marginTop: '-20px' }}>
-
+ 
         {/* Info básica */}
         <div style={{ background: '#fff', borderRadius: '20px',
           padding: '20px', marginBottom: '14px',
@@ -181,7 +192,7 @@ export default function PlatoDetalle() {
             )}
           </div>
         </div>
-
+ 
         {/* Alerta alergia */}
         {alergiaInfo?.tiene_alergenos && (
           <div style={{
@@ -222,7 +233,7 @@ export default function PlatoDetalle() {
             </label>
           </div>
         )}
-
+ 
         {/* Variantes */}
         {plato.variantes?.length > 0 && (
           <div style={{ background: '#fff', borderRadius: '16px',
@@ -259,7 +270,7 @@ export default function PlatoDetalle() {
             </div>
           </div>
         )}
-
+ 
         {/* Adiciones */}
         {plato.adiciones?.length > 0 && (
           <div style={{ background: '#fff', borderRadius: '16px',
@@ -314,7 +325,7 @@ export default function PlatoDetalle() {
             </div>
           </div>
         )}
-
+ 
         {/* Quitar ingredientes */}
         {plato.ingredientes?.filter((i) => i.es_removible).length > 0 && (
           <div style={{ background: '#fff', borderRadius: '16px',
@@ -344,7 +355,7 @@ export default function PlatoDetalle() {
             </div>
           </div>
         )}
-
+ 
         {/* Notas */}
         <div style={{ background: '#fff', borderRadius: '16px',
           padding: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
@@ -369,7 +380,7 @@ export default function PlatoDetalle() {
           />
         </div>
       </div>
-
+ 
       {/* Footer fijo */}
       <div style={{
         position: 'fixed', bottom: '72px', left: 0, right: 0,
@@ -398,7 +409,7 @@ export default function PlatoDetalle() {
             <Plus size={18} color="#ff4f1f" />
           </button>
         </div>
-
+ 
         {/* Botón agregar */}
         <button onClick={handleAgregar} style={{
           flex: 1, padding: '15px', background: '#ff4f1f',

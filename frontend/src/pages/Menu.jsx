@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { getMenu } from '../api/menu';
 import { Search, ShoppingBag, Clock, ChevronRight } from 'lucide-react';
-import useCarritoStore from '../store/useCarritoStore';
-
+import useCarritoStore, { selectCount } from '../store/useCarritoStore';
+ 
 function PlatoCard({ plato, onClick }) {
   return (
     <div onClick={onClick} style={{
@@ -44,7 +44,7 @@ function PlatoCard({ plato, onClick }) {
           </div>
         )}
       </div>
-
+ 
       {/* Info */}
       <div style={{ padding: '12px 14px', flex: 1, display: 'flex',
         flexDirection: 'column', justifyContent: 'space-between' }}>
@@ -79,34 +79,34 @@ function PlatoCard({ plato, onClick }) {
     </div>
   );
 }
-
+ 
 export default function Menu() {
   const navigate = useNavigate();
   const [busqueda, setBusqueda]   = useState('');
   const [catActiva, setCatActiva] = useState(null);
-  const count = useCarritoStore((s) => s.count);
-
+  const count = useCarritoStore(selectCount);
+ 
   const { data: categorias = [], isLoading } = useQuery({
     queryKey: ['menu'],
     queryFn:  () => getMenu().then((r) => r.data),
   });
-
+ 
   const totalPlatos = categorias.reduce((a, c) => a + c.platos.length, 0);
-
+ 
   const categoriasFiltradas = catActiva
     ? categorias.filter((c) => c.id === catActiva)
     : categorias;
-
+ 
   const platosConBusqueda = categoriasFiltradas.map((cat) => ({
     ...cat,
     platos: cat.platos.filter((p) =>
       p.nombre.toLowerCase().includes(busqueda.toLowerCase())
     ),
   })).filter((cat) => cat.platos.length > 0);
-
+ 
   return (
     <div style={{ background: '#f5f2ed', minHeight: '100dvh', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-
+ 
       {/* Header */}
       <div style={{
         background: '#1a1a1a', padding: '52px 20px 20px',
@@ -141,7 +141,7 @@ export default function Menu() {
             )}
           </button>
         </div>
-
+ 
         {/* Buscador */}
         <div style={{ position: 'relative' }}>
           <Search size={15} color="#666" style={{
@@ -164,7 +164,7 @@ export default function Menu() {
           />
         </div>
       </div>
-
+ 
       {/* Filtros por categoría */}
       <div style={{
         display: 'flex', gap: '8px', overflowX: 'auto',
@@ -185,7 +185,7 @@ export default function Menu() {
           </button>
         ))}
       </div>
-
+ 
       {/* Lista de platos */}
       <div style={{ padding: '8px 20px 100px' }}>
         {isLoading ? (
@@ -226,7 +226,7 @@ export default function Menu() {
                   Ver todos <ChevronRight size={13} />
                 </button>
               </div>
-
+ 
               {/* Cards en lista */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {cat.platos.map((plato) => (
@@ -244,3 +244,4 @@ export default function Menu() {
     </div>
   );
 }
+ 
