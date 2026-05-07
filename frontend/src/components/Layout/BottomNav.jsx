@@ -1,18 +1,19 @@
 import { NavLink } from 'react-router-dom';
-import { Home, UtensilsCrossed, ShoppingBag, CalendarDays, ClipboardList } from 'lucide-react';
-import useCarritoStore from '../../store/useCarritoStore';
-
+import { Home, UtensilsCrossed, ShoppingBag, CalendarDays, ClipboardList, CreditCard } from 'lucide-react';
+import useCarritoStore, { selectCount } from '../../store/useCarritoStore';
+ 
 const tabs = [
-  { to: '/',         icon: Home,             label: 'Inicio'   },
-  { to: '/menu',     icon: UtensilsCrossed,  label: 'Menú'     },
+  { to: '/',         icon: Home,             label: 'Inicio'      },
+  { to: '/menu',     icon: UtensilsCrossed,  label: 'Menú'        },
   { to: '/carrito',  icon: ShoppingBag,      label: 'Pedido',  badge: true },
-  { to: '/pedidos',  icon: ClipboardList,    label: 'Mis pedidos' },
-  { to: '/reservas', icon: CalendarDays,     label: 'Reservas' },
+  { to: '/pedidos',  icon: ClipboardList,    label: 'Pedidos'     },
+  { to: '/pago',     icon: CreditCard,       label: 'Pago'        },
+  { to: '/reservas', icon: CalendarDays,     label: 'Reservas'    },
 ];
-
+ 
 export default function BottomNav() {
-  const count = useCarritoStore((s) => s.count);
-
+  const count = useCarritoStore(selectCount);
+ 
   return (
     <nav style={{
       position: 'fixed', bottom: 0, left: 0, right: 0,
@@ -23,16 +24,16 @@ export default function BottomNav() {
       zIndex: 100,
     }}>
       {tabs.map(({ to, icon: Icon, label, badge }) => (
-        <NavLink key={to} to={to}>
+        <NavLink key={to} to={to} style={{ textDecoration: 'none' }}>
           {({ isActive }) => (
             <div style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center',
-              gap: '3px', textDecoration: 'none', position: 'relative',
+              gap: '3px', position: 'relative',
               color: isActive ? '#ff4f1f' : '#888888',
               transition: 'color 0.2s',
             }}>
               <div style={{ position: 'relative' }}>
-                <Icon size={22} strokeWidth={isActive ? 2.5 : 1.8} />
+                <Icon size={20} strokeWidth={isActive ? 2.5 : 1.8} />
                 {badge && count > 0 && (
                   <span style={{
                     position: 'absolute', top: '-6px', right: '-8px',
@@ -43,7 +44,7 @@ export default function BottomNav() {
                   }}>{count}</span>
                 )}
               </div>
-              <span style={{ fontSize: '10px', fontWeight: 600, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+              <span style={{ fontSize: '9px', fontWeight: 600, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
                 {label}
               </span>
             </div>
@@ -53,3 +54,4 @@ export default function BottomNav() {
     </nav>
   );
 }
+ 

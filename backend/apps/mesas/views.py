@@ -266,7 +266,7 @@ class LiberarMesaView(views.APIView):
         sesion.save()
 
         # Liberar mesa
-        disponible     = EstadoMesa.objects.get(nombre='disponible')
+        disponible = EstadoMesa.objects.get(nombre='libre')
         sesion.mesa.estado = disponible
         sesion.mesa.save()
 
