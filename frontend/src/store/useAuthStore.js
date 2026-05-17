@@ -16,6 +16,9 @@ const useAuthStore = create(
 
       setSesion: (sesionId) => set({ sesionId }),
 
+      // Cierra la sesión de mesa sin cerrar sesión de usuario
+      salirMesa: () => set({ sesionId: null }),
+
       logout: () => {
         localStorage.clear();
         set({ usuario: null, token: null, rol: null, sesionId: null });

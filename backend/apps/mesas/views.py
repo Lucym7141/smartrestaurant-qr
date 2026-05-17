@@ -1,6 +1,5 @@
 from django.shortcuts import render
 
-# Create your views here.
 import uuid
 from django.utils import timezone
 from rest_framework import generics, views, status
@@ -21,11 +20,6 @@ from utils.permisos import EsAdmin, EsMesero, EsAdminOMesero
 # ─── MAPA DE MESAS ────────────────────────────────────────────────────────────
 
 class MapaMesasView(views.APIView):
-    """
-    Devuelve todas las mesas con su estado actual para
-    renderizar el mapa virtual (disponible / ocupada / reservada).
-    Accesible sin autenticación para la pantalla de reservas.
-    """
     permission_classes = [AllowAny]
 
     def get(self, request):
@@ -34,10 +28,6 @@ class MapaMesasView(views.APIView):
 
 
 class DetalleMesaView(generics.RetrieveAPIView):
-    """
-    Al acercarse a una mesa en el mapa muestra su detalle:
-    número, capacidad, ubicación y estado.
-    """
     permission_classes = [AllowAny]
     serializer_class   = MesaSerializer
     queryset           = Mesa.objects.all()
@@ -46,13 +36,6 @@ class DetalleMesaView(generics.RetrieveAPIView):
 # ─── QR Y SESIÓN ─────────────────────────────────────────────────────────────
 
 class EscanearQRView(views.APIView):
-    """
-    El cliente escanea el QR de su mesa.
-    1. Valida el token del QR.
-    2. Si la mesa no tiene sesión activa, crea una nueva.
-    3. Une al cliente a la sesión de esa mesa.
-    4. Devuelve el id de sesión para que el frontend lo use en los pedidos.
-    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -63,7 +46,6 @@ class EscanearQRView(views.APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Validar QR
         try:
             qr = CodigoQR.objects.select_related('mesa').get(
                 token=token, activo=True)
@@ -73,30 +55,27 @@ class EscanearQRView(views.APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        mesa   = qr.mesa
-        activa = EstadoSesion.objects.get(nombre='activa')
+        mesa    = qr.mesa
+        activa  = EstadoSesion.objects.get(nombre='activa')
         ocupada = EstadoMesa.objects.get(nombre='ocupada')
 
-        # Buscar sesión activa existente o crear una nueva
         sesion, creada = SesionMesa.objects.get_or_create(
             mesa=mesa,
             estado=activa,
             defaults={'estado': activa}
         )
 
-        # Si es sesión nueva, marcar mesa como ocupada
         if creada:
             mesa.estado = ocupada
             mesa.save()
 
-        # Unir al usuario a la sesión si no está ya
         usuario_sesion, _ = UsuarioSesion.objects.get_or_create(
             sesion=sesion,
             usuario=request.user
         )
 
         return Response({
-            'mensaje': f'Bienvenido a la Mesa {mesa.numero}',
+            'mensaje':     f'Bienvenido a la Mesa {mesa.numero}',
             'sesion_id':   sesion.id,
             'mesa_numero': mesa.numero,
             'mesa_id':     mesa.id,
@@ -104,10 +83,6 @@ class EscanearQRView(views.APIView):
 
 
 class MiSesionView(views.APIView):
-    """
-    El cliente consulta la sesión activa a la que pertenece:
-    quiénes están en su mesa y el estado del pago.
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -128,22 +103,16 @@ class MiSesionView(views.APIView):
         return Response(SesionMesaSerializer(sesion).data)
 
 
-# ─── ADMINISTRACIÓN DE MESAS (solo admin) ────────────────────────────────────
+# ─── ADMINISTRACIÓN DE MESAS ─────────────────────────────────────────────────
 
 class CrearMesaView(generics.CreateAPIView):
-    """El admin crea una mesa y su QR se genera automáticamente."""
     permission_classes = [IsAuthenticated, EsAdmin]
     serializer_class   = MesaSerializer
 
     def perform_create(self, serializer):
-        disponible = EstadoMesa.objects.get(nombre='disponible')
-        mesa = serializer.save(estado=disponible)
-
-        # Generar QR automáticamente al crear la mesa
-        CodigoQR.objects.create(
-            mesa=mesa,
-            token=str(uuid.uuid4())  # token único y seguro
-        )
+        libre = EstadoMesa.objects.get(nombre='libre')
+        mesa  = serializer.save(estado=libre)
+        CodigoQR.objects.create(mesa=mesa, token=str(uuid.uuid4()))
 
 
 class EditarMesaView(generics.UpdateAPIView):
@@ -153,7 +122,6 @@ class EditarMesaView(generics.UpdateAPIView):
 
 
 class RegenerarQRView(views.APIView):
-    """El admin regenera el QR de una mesa (si fue comprometido)."""
     permission_classes = [IsAuthenticated, EsAdmin]
 
     def post(self, request, mesa_id):
@@ -171,16 +139,12 @@ class RegenerarQRView(views.APIView):
 # ─── TAREAS DEL MESERO ────────────────────────────────────────────────────────
 
 class SolicitarTareaView(views.APIView):
-    """
-    Cliente o mesero solicitan una tarea:
-    limpieza de mesa, atención, etc.
-    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        sesion_id  = request.data.get('sesion_id')
-        tipo_nombre = request.data.get('tipo')  # 'limpieza_mesa', 'atencion_solicitud'
-        notas      = request.data.get('notas', '')
+        sesion_id   = request.data.get('sesion_id')
+        tipo_nombre = request.data.get('tipo')
+        notas       = request.data.get('notas', '')
 
         try:
             sesion = SesionMesa.objects.get(id=sesion_id, estado__nombre='activa')
@@ -199,14 +163,10 @@ class SolicitarTareaView(views.APIView):
             solicitado_por = request.user,
             notas          = notas,
         )
-        return Response(
-            TareaMeseroSerializer(tarea).data,
-            status=status.HTTP_201_CREATED
-        )
+        return Response(TareaMeseroSerializer(tarea).data, status=status.HTTP_201_CREATED)
 
 
 class TareasPendientesView(generics.ListAPIView):
-    """El mesero ve todas las tareas pendientes asignadas o sin asignar."""
     permission_classes = [IsAuthenticated, EsAdminOMesero]
     serializer_class   = TareaMeseroSerializer
 
@@ -219,7 +179,6 @@ class TareasPendientesView(generics.ListAPIView):
 
 
 class CompletarTareaView(views.APIView):
-    """El mesero marca una tarea como completada."""
     permission_classes = [IsAuthenticated, EsAdminOMesero]
 
     def patch(self, request, pk):
@@ -228,7 +187,7 @@ class CompletarTareaView(views.APIView):
         except TareaMesero.DoesNotExist:
             return Response({'error': 'Tarea no encontrada'}, status=404)
 
-        completada = EstadoTarea.objects.get(nombre='completada')
+        completada             = EstadoTarea.objects.get(nombre='completada')
         tarea.estado           = completada
         tarea.mesero           = request.user
         tarea.fecha_completada = timezone.now()
@@ -237,13 +196,10 @@ class CompletarTareaView(views.APIView):
         return Response({'mensaje': 'Tarea completada'})
 
 
-# ─── LIBERAR MESA (después de confirmar pago) ─────────────────────────────────
+# ─── LIBERAR MESA (con sesión activa) ─────────────────────────────────────────
 
 class LiberarMesaView(views.APIView):
-    """
-    Solo se ejecuta cuando el pago fue confirmado por el mesero.
-    Cierra la sesión y pone la mesa como disponible.
-    """
+    """Cierra la sesión activa y pone la mesa como libre."""
     permission_classes = [IsAuthenticated, EsAdminOMesero]
 
     def post(self, request, sesion_id):
@@ -251,23 +207,40 @@ class LiberarMesaView(views.APIView):
             sesion = SesionMesa.objects.select_related('mesa').get(
                 id=sesion_id, estado__nombre='activa')
         except SesionMesa.DoesNotExist:
-            return Response({'error': 'Sesión no encontrada o ya cerrada'}, status=404)
-
-        if not sesion.pago_confirmado:
             return Response(
-                {'error': 'No se puede liberar la mesa hasta confirmar el pago'},
-                status=status.HTTP_400_BAD_REQUEST
+                {'error': 'Sesión no encontrada o ya cerrada'},
+                status=404
             )
 
-        # Cerrar sesión
-        cerrada    = EstadoSesion.objects.get(nombre='cerrada')
-        sesion.estado   = cerrada
+        cerrada          = EstadoSesion.objects.get(nombre='cerrada')
+        sesion.estado    = cerrada
         sesion.fecha_fin = timezone.now()
         sesion.save()
 
-        # Liberar mesa
-        disponible = EstadoMesa.objects.get(nombre='libre')
-        sesion.mesa.estado = disponible
+        libre              = EstadoMesa.objects.get(nombre='libre')
+        sesion.mesa.estado = libre
         sesion.mesa.save()
 
         return Response({'mensaje': f'Mesa {sesion.mesa.numero} liberada correctamente'})
+
+
+# ─── LIBERAR MESA DIRECTO (sin sesión — para mesas reservadas) ────────────────
+
+class LiberarMesaDirectoView(views.APIView):
+    """
+    Libera una mesa reservada directamente sin necesitar sesión activa.
+    Úsalo cuando la mesa está en estado 'reservada' y no tiene sesión.
+    """
+    permission_classes = [IsAuthenticated, EsAdminOMesero]
+
+    def post(self, request, mesa_id):
+        try:
+            mesa = Mesa.objects.get(id=mesa_id)
+        except Mesa.DoesNotExist:
+            return Response({'error': 'Mesa no encontrada'}, status=404)
+
+        libre       = EstadoMesa.objects.get(nombre='libre')
+        mesa.estado = libre
+        mesa.save()
+
+        return Response({'mensaje': f'Mesa {mesa.numero} liberada correctamente'})

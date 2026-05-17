@@ -8,6 +8,7 @@ from .views import (
     DetalleReservaView,
     TodasReservasView,
     ConfirmarDepositoView,
+    EliminarReservaView,
 )
 
 urlpatterns = [
@@ -32,4 +33,6 @@ urlpatterns = [
          TodasReservasView.as_view(),            name='todas-reservas'),
     path('reservas/<int:pk>/confirmar-deposito/',
          ConfirmarDepositoView.as_view(),        name='confirmar-deposito'),
+    path('reservas/<int:pk>/eliminar/',
+         EliminarReservaView.as_view(),          name='eliminar-reserva'),
 ]
