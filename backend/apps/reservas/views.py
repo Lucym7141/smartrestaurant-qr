@@ -25,11 +25,6 @@ from utils.permisos import EsAdmin, EsAdminOMesero
 # ─── MESAS DISPONIBLES PARA RESERVAR ─────────────────────────────────────────
 
 class MesasDisponiblesReservaView(views.APIView):
-    """
-    El cliente consulta qué mesas están disponibles
-    para una fecha y número de personas específicos.
-    Se usa para mostrar el mapa antes de reservar.
-    """
     permission_classes = [AllowAny]
 
     def get(self, request):
@@ -41,18 +36,15 @@ class MesasDisponiblesReservaView(views.APIView):
         except ValueError:
             return Response({'error': 'num_personas debe ser un número'}, status=400)
 
-        # Mesas con capacidad suficiente
         mesas = Mesa.objects.filter(
             capacidad__gte=num_personas
         ).select_related('estado')
 
-        # Si se envía fecha, excluir mesas ya reservadas en ese horario
         if fecha_str:
             try:
                 from django.utils.dateparse import parse_datetime
                 fecha = parse_datetime(fecha_str)
                 if fecha:
-                    # Margen de 2 horas alrededor de la fecha
                     fecha_inicio = fecha - timedelta(hours=2)
                     fecha_fin    = fecha + timedelta(hours=2)
 
@@ -72,11 +64,6 @@ class MesasDisponiblesReservaView(views.APIView):
 # ─── CREAR RESERVA ────────────────────────────────────────────────────────────
 
 class CrearReservaView(views.APIView):
-    """
-    El cliente crea una reserva con depósito opcional.
-    El depósito total se calcula automáticamente:
-    deposito_por_persona × num_personas.
-    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -87,7 +74,6 @@ class CrearReservaView(views.APIView):
         mesa      = Mesa.objects.get(id=data['mesa_id'])
         pendiente = EstadoReserva.objects.get(nombre='pendiente')
 
-        # Estado del depósito
         if data['deposito_por_persona'] > 0:
             estado_deposito = EstadoDeposito.objects.get(nombre='pendiente')
         else:
@@ -107,12 +93,10 @@ class CrearReservaView(views.APIView):
             estado_deposito      = estado_deposito,
         )
 
-        # Marcar mesa como reservada
-        reservada        = EstadoMesa.objects.get(nombre='reservada')
-        mesa.estado      = reservada
+        reservada   = EstadoMesa.objects.get(nombre='reservada')
+        mesa.estado = reservada
         mesa.save()
 
-        # Notificar al admin
         self._notificar_admin(reserva, request.user)
 
         return Response(
@@ -121,9 +105,7 @@ class CrearReservaView(views.APIView):
         )
 
     def _notificar_admin(self, reserva, emisor):
-        tipo   = TipoNotificacion.objects.get(nombre='nueva_reserva') \
-                 if TipoNotificacion.objects.filter(nombre='nueva_reserva').exists() \
-                 else None
+        tipo = TipoNotificacion.objects.filter(nombre='nueva_reserva').first()
         if not tipo:
             return
         admins = Usuario.objects.filter(rol__nombre='admin', activo=True)
@@ -143,12 +125,6 @@ class CrearReservaView(views.APIView):
 # ─── CANCELAR RESERVA ─────────────────────────────────────────────────────────
 
 class CancelarReservaView(views.APIView):
-    """
-    El cliente cancela su reserva.
-    Regla: si cancela con ≥ 40 minutos de anticipación
-    se marca devolucion_aplicada = True y se devuelve el depósito.
-    Si cancela con menos tiempo, pierde el depósito.
-    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
@@ -167,18 +143,17 @@ class CancelarReservaView(views.APIView):
         serializer = CancelarReservaInputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        ahora              = timezone.now()
-        cancelada          = EstadoReserva.objects.get(nombre='cancelada')
-        reserva.estado     = cancelada
+        ahora          = timezone.now()
+        cancelada      = EstadoReserva.objects.get(nombre='cancelada')
+        reserva.estado = cancelada
         reserva.fecha_cancelacion = ahora
 
-        # Verificar si aplica devolución (≥ 40 minutos antes)
         diferencia = reserva.fecha_reserva - ahora
         if diferencia >= timedelta(minutes=40) and reserva.deposito_total > 0:
             reserva.devolucion_aplicada = True
-            devuelto = EstadoDeposito.objects.get(nombre='devuelto')
+            devuelto                = EstadoDeposito.objects.get(nombre='devuelto')
             reserva.estado_deposito = devuelto
-            mensaje_devolucion = (
+            mensaje_devolucion      = (
                 f'Se devolverá tu depósito de '
                 f'${reserva.deposito_total} en los próximos días hábiles.'
             )
@@ -191,36 +166,27 @@ class CancelarReservaView(views.APIView):
 
         reserva.save()
 
-        # Liberar la mesa
-        disponible       = EstadoMesa.objects.get(nombre='disponible')
-        reserva.mesa.estado = disponible
+        libre               = EstadoMesa.objects.get(nombre='libre')
+        reserva.mesa.estado = libre
         reserva.mesa.save()
 
         return Response({
-            'mensaje':            'Reserva cancelada correctamente',
-            'devolucion':         reserva.devolucion_aplicada,
-            'info_devolucion':    mensaje_devolucion,
-            'deposito_total':     str(reserva.deposito_total),
+            'mensaje':         'Reserva cancelada correctamente',
+            'devolucion':      reserva.devolucion_aplicada,
+            'info_devolucion': mensaje_devolucion,
+            'deposito_total':  str(reserva.deposito_total),
         })
 
 
-# ─── CONFIRMAR LLEGADA (persona en la puerta) ─────────────────────────────────
+# ─── CONFIRMAR LLEGADA ────────────────────────────────────────────────────────
 
 class ConfirmarLlegadaView(views.APIView):
-    """
-    La persona en la puerta (mesero/admin) confirma la llegada del cliente.
-    - Si tiene reserva: confirma la reserva y guía al cliente a su mesa.
-    - Si no tiene reserva: asigna una mesa disponible.
-    En ambos casos registra quién recibió al cliente.
-    """
     permission_classes = [IsAuthenticated, EsAdminOMesero]
 
     def post(self, request):
-        correo_cliente = request.data.get('correo_cliente')
-        reserva_id     = request.data.get('reserva_id')
-        mesa_id        = request.data.get('mesa_id')  # solo si no tiene reserva
+        reserva_id = request.data.get('reserva_id')
+        mesa_id    = request.data.get('mesa_id')
 
-        # ── Con reserva ──────────────────────────────────────────────────────
         if reserva_id:
             try:
                 reserva = Reserva.objects.select_related('mesa').get(
@@ -230,37 +196,29 @@ class ConfirmarLlegadaView(views.APIView):
             except Reserva.DoesNotExist:
                 return Response({'error': 'Reserva no encontrada'}, status=404)
 
-            confirmada               = EstadoReserva.objects.get(nombre='confirmada')
-            reserva.estado           = confirmada
+            confirmada                = EstadoReserva.objects.get(nombre='confirmada')
+            reserva.estado            = confirmada
             reserva.usuario_recepcion = request.user
             reserva.save()
 
-            # Marcar depósito como pagado si estaba pendiente
             if reserva.estado_deposito.nombre == 'pendiente':
-                pagado                   = EstadoDeposito.objects.get(nombre='pagado')
-                reserva.estado_deposito  = pagado
+                pagado                  = EstadoDeposito.objects.get(nombre='pagado')
+                reserva.estado_deposito = pagado
                 reserva.save()
 
             return Response({
-                'mensaje':      f'Cliente con reserva confirmado.',
-                'mesa_numero':  reserva.mesa.numero,
-                'mesa_id':      reserva.mesa.id,
-                'num_personas': reserva.num_personas,
+                'mensaje':       f'Cliente con reserva confirmado.',
+                'mesa_numero':   reserva.mesa.numero,
+                'mesa_id':       reserva.mesa.id,
+                'num_personas':  reserva.num_personas,
                 'tiene_reserva': True,
             })
 
-        # ── Sin reserva — asignar mesa disponible ────────────────────────────
         elif mesa_id:
             try:
-                mesa = Mesa.objects.get(
-                    id=mesa_id,
-                    estado__nombre='disponible'
-                )
+                mesa = Mesa.objects.get(id=mesa_id, estado__nombre='disponible')
             except Mesa.DoesNotExist:
-                return Response(
-                    {'error': 'Mesa no disponible'},
-                    status=400
-                )
+                return Response({'error': 'Mesa no disponible'}, status=400)
 
             ocupada     = EstadoMesa.objects.get(nombre='ocupada')
             mesa.estado = ocupada
@@ -273,16 +231,12 @@ class ConfirmarLlegadaView(views.APIView):
                 'tiene_reserva': False,
             })
 
-        return Response(
-            {'error': 'Debes enviar reserva_id o mesa_id'},
-            status=400
-        )
+        return Response({'error': 'Debes enviar reserva_id o mesa_id'}, status=400)
 
 
-# ─── MIS RESERVAS (cliente) ───────────────────────────────────────────────────
+# ─── MIS RESERVAS ─────────────────────────────────────────────────────────────
 
 class MisReservasView(generics.ListAPIView):
-    """El cliente ve todas sus reservas activas e historial."""
     permission_classes = [IsAuthenticated]
     serializer_class   = ReservaSerializer
 
@@ -295,7 +249,6 @@ class MisReservasView(generics.ListAPIView):
 
 
 class DetalleReservaView(generics.RetrieveAPIView):
-    """El cliente ve el detalle de una reserva específica."""
     permission_classes = [IsAuthenticated]
     serializer_class   = ReservaSerializer
 
@@ -306,7 +259,6 @@ class DetalleReservaView(generics.RetrieveAPIView):
 # ─── GESTIÓN ADMIN ────────────────────────────────────────────────────────────
 
 class TodasReservasView(generics.ListAPIView):
-    """El admin ve todas las reservas del día o rango de fechas."""
     permission_classes = [IsAuthenticated, EsAdminOMesero]
     serializer_class   = ReservaSerializer
 
@@ -327,10 +279,6 @@ class TodasReservasView(generics.ListAPIView):
 
 
 class ConfirmarDepositoView(views.APIView):
-    """
-    El cajero confirma que recibió el depósito en efectivo
-    o que el pago online fue procesado.
-    """
     permission_classes = [IsAuthenticated, EsAdminOMesero]
 
     def patch(self, request, pk):
@@ -344,6 +292,36 @@ class ConfirmarDepositoView(views.APIView):
         reserva.save()
 
         return Response({
-            'mensaje':         'Depósito confirmado',
-            'deposito_total':  str(reserva.deposito_total),
+            'mensaje':        'Depósito confirmado',
+            'deposito_total': str(reserva.deposito_total),
+        })
+
+
+# ─── ELIMINAR RESERVA (Admin) ─────────────────────────────────────────────────
+
+class EliminarReservaView(views.APIView):
+    """
+    El admin elimina una reserva y libera la mesa automáticamente.
+    """
+    permission_classes = [IsAuthenticated, EsAdminOMesero]
+
+    def delete(self, request, pk):
+        try:
+            reserva = Reserva.objects.select_related('mesa').get(pk=pk)
+        except Reserva.DoesNotExist:
+            return Response({'error': 'Reserva no encontrada'}, status=404)
+
+        mesa = reserva.mesa
+
+        # Eliminar la reserva
+        reserva.delete()
+
+        # Liberar la mesa si estaba reservada
+        if mesa.estado.nombre == 'reservada':
+            libre       = EstadoMesa.objects.get(nombre='libre')
+            mesa.estado = libre
+            mesa.save()
+
+        return Response({
+            'mensaje': f'Reserva eliminada y Mesa {mesa.numero} liberada correctamente'
         })
